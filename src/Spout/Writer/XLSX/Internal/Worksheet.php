@@ -214,7 +214,19 @@ EOD;
         $cellXML .= ' s="' . $styleId . '"';
 
         if (CellHelper::isNonEmptyString($cellValue)) {
-            $cellXML .= $this->getCellXMLFragmentForNonEmptyString($cellValue);
+            $matches = array();
+            if (preg_match('/=HYPERLINK\([\'"](.*)[\'"],\s*[\'"](.*)[\'"]\)/', $cellValue, $matches)) {
+                if ($this->stringHelper->getStringLength($cellValue) > self::MAX_CHARACTERS_PER_CELL) {
+                    throw new InvalidArgumentException('Trying to add a value that exceeds the maximum number of characters allowed in a cell (32,767)');
+                }
+                // Special case to add HYPERLINK Formula
+                $url = $this->stringsEscaper->escape($matches[1]);
+                $text = $this->stringsEscaper->escape($matches[2]);
+                $formula = sprintf('HYPERLINK("%s","%s")', $url, $text);
+                $cellXML = sprintf('<c r="%s%s" t="str"><f>%s</f><v>%s</v></c>', $columnIndex, $rowIndex, $formula, $text);
+            } else {
+                $cellXML .= $this->getCellXMLFragmentForNonEmptyString($cellValue);
+            }
         } else if (CellHelper::isBoolean($cellValue)) {
             $cellXML .= ' t="b"><v>' . intval($cellValue) . '</v></c>';
         } else if (CellHelper::isNumeric($cellValue)) {
